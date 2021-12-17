@@ -36,6 +36,116 @@ forward 2
     println!("day2pt1: {}", day2pt1(&day2input));
     println!("day2pt2ex: {}", day2pt2(&day2exinput));
     println!("day2pt2: {}", day2pt2(&day2input));
+
+    let day3exinput = parseday3(
+        r#"00100
+11110
+10110
+10111
+10101
+01111
+00111
+11100
+10000
+11001
+00010
+01010"#,
+    );
+    let day3input = parseday3(include_str!("day3"));
+    println!("day3pt1ex: {}", day3pt1(&day3exinput));
+    println!("day3pt1: {}", day3pt1(&day3input));
+    println!("day3pt2ex: {}", day3pt2(&day3exinput));
+    println!("day3pt2: {}", day3pt2(&day3input));
+}
+
+fn parseday3(raw: &str) -> Vec<u16> {
+    raw.lines()
+        .map(|l| u16::from_str_radix(l, 2).unwrap())
+        .collect()
+}
+
+fn day3pt1(xs: &[u16]) -> usize {
+    let (gamma, epsilon) = gamma_epsilon(xs);
+
+    gamma * epsilon
+}
+
+fn gamma_epsilon(xs: &[u16]) -> (usize, usize) {
+    let len = xs.len();
+    let counts = xs.iter().fold([0usize; 16], |acc, x| {
+        let mut a = acc;
+        for i in 0..16 {
+            a[i] += ((x >> i) & 0x1) as usize;
+        }
+        a
+    });
+
+    let gamma = counts.iter().enumerate().fold(0, |gamma, (i, x)| {
+        if x >= &(len - x) {
+            // 1 is most common
+            gamma | (0x1 << i)
+        } else {
+            // 0 is most common
+            gamma
+        }
+    });
+
+    let bits = (1..=16).find(|&n| gamma < 2usize.pow(n)).unwrap() - 1;
+    let mask = 2usize.pow(bits + 1) - 1;
+    let epsilon = gamma ^ mask;
+
+    (gamma, epsilon)
+}
+
+fn day3pt2(xs: &[u16]) -> usize {
+    let (gamma, _) = gamma_epsilon(xs);
+    let digits = (1..=16).find(|&n| gamma < 2usize.pow(n)).unwrap();
+
+    let ox_rating = {
+        let mut ox_pool: Vec<u16> = xs.into();
+        for i in (0..digits).rev() {
+            if ox_pool.len() == 1 {
+                break;
+            }
+            if ox_pool.is_empty() {
+                panic!("exhausted pool")
+            }
+            let (gamma, _) = gamma_epsilon(&ox_pool);
+            let val = ((gamma >> i) & 0x1) as u16;
+
+            ox_pool = ox_pool
+                .drain(..)
+                .filter(|x| ((x >> i) & 0x1) == val)
+                .collect();
+        }
+        ox_pool.pop().unwrap()
+    };
+
+    let co_rating = {
+        let mut co_pool: Vec<u16> = xs.into();
+        for i in (0..digits).rev() {
+            if co_pool.len() == 1 {
+                break;
+            }
+            if co_pool.is_empty() {
+                panic!("exhausted pool")
+            }
+            let (gamma, _) = gamma_epsilon(&co_pool);
+            let val = ((gamma >> i) & 0x1) as u16;
+
+            co_pool = co_pool
+                .drain(..)
+                .filter(|x| ((x >> i) & 0x1) != val)
+                .collect();
+        }
+        if co_pool.len() != 1 {
+            dbg!(&co_pool);
+            panic!("pool size unexpected");
+        }
+        co_pool.pop().unwrap()
+    };
+
+    ox_rating as usize * co_rating as usize
 }
 
 lazy_static! {
